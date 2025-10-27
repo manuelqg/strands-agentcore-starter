@@ -39,6 +39,7 @@ Strands Agents is a simple yet powerful SDK for building AI agents in Python. It
 - Implement proper connection handling with context managers
 - Handle MCP server errors gracefully
 - Use `uvx` for running MCP servers when possible
+- **MCPAgentTool Attributes**: Use `tool.definition.name` instead of `tool.name` for tool names
 
 ### Example Code Structure
 from strands import Agent
@@ -75,6 +76,7 @@ with mcp_client:
 - Use print statements or logging for debugging agent interactions
 - Validate MCP server connections before running agents
 - Handle network timeouts and connection errors gracefully
+- **MCPAgentTool Access**: Access tool properties via `tool.definition.name`, not `tool.name`
 
 ## Resources
 - [Strands Agents Documentation](https://strandsagents.com/latest/)
