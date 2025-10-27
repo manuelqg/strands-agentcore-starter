@@ -39,6 +39,7 @@ Strands Agents is a simple yet powerful SDK for building AI agents in Python. It
 - Implement proper connection handling with context managers
 - Handle MCP server errors gracefully
 - Use `uvx` for running MCP servers when possible
+- **MCPAgentTool Attributes**: `MCPAgentTool` objects don't expose name/description attributes directly. Simply pass the tools list to the Agent without trying to inspect individual tool properties. The agent will handle tool discovery internally.
 
 ### Example Code Structure
 from strands import Agent
@@ -65,6 +66,10 @@ mcp_client = MCPClient(
 # Use context manager for proper resource handling
 with mcp_client:
     tools = mcp_client.list_tools_sync()
+    
+    # Don't try to inspect tool.name or tool.definition - just pass tools to Agent
+    print(f"Connected with {len(tools)} tools")
+    
     agent = Agent(tools=tools, model=model, system_prompt="Your system prompt here")
     response = agent("Your query here")
     print(response)
@@ -75,6 +80,7 @@ with mcp_client:
 - Use print statements or logging for debugging agent interactions
 - Validate MCP server connections before running agents
 - Handle network timeouts and connection errors gracefully
+- **MCPAgentTool Inspection**: Don't try to access `tool.name`, `tool.definition`, or other attributes on `MCPAgentTool` objects. They are opaque wrappers. Just count them with `len(tools)` and pass them to the Agent.
 
 ## Resources
 - [Strands Agents Documentation](https://strandsagents.com/latest/)
