@@ -1,4 +1,4 @@
-# MCP Server Configuration 🔧
+# MCP Server Configuration for Amazon Q CLI 🔧
 
 ## Quick Setup
 
