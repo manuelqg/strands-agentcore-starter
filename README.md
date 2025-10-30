@@ -16,6 +16,7 @@ A starter repository with rules and configuration files to help you create your 
 
 - Clone this repository `git clone https://github.com/manuelqg/strands-agentcore-starter`
 - Open it in Kiro or Amazon Q Developer CLI
+- Configure MCP servers. Use `mcp.json` to copy and paste into Kiro. Use `mcp.md` to install in Amazon Q Developer CLI via script.
 - Configure an `.env` file with AWS Credentials
 - Send your first prompt:
 
