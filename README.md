@@ -1,4 +1,4 @@
-# Strands AgentCore Starter
+# Agentic Mindset Week 1
 
 A starter repository with rules and configuration files to help you create your first Strands and AgentCore agents using Amazon Q or Kiro.
 
@@ -6,43 +6,30 @@ A starter repository with rules and configuration files to help you create your 
 
 - **Rules & Steering Files**: Guidelines for both Amazon Q and Kiro to assist in agent development
 - **MCP Configuration**: Optimal MCP server setup for Strands and AgentCore development
-- **Best Practices**: Development patterns and troubleshooting guides
+
+## Prerequirements
+
+- AWS Credentials with permissions of Amazon Bedrock and Amazon AgentCore
+- Kiro or Amazon Q CLI installed
 
 ## Quick Start
 
-### Prerequisites
-- AWS CLI configured with appropriate permissions
-- Python 3.10 or newer
-- Virtual environment setup
+- Clone this repository `git clone https://github.com/manuelqg/strands-agentcore-starter`
+- Open it in Kiro or Amazon Q Developer CLI
+- Configure an `.env` file with AWS Credentials
+- Send your first prompt:
 
-### Setup
-```bash
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install required packages
-pip install "bedrock-agentcore-starter-toolkit>=0.1.21" strands-agents boto3
+```
+Create a Strands Agent in cdk_agent.py that connects to the AWS CDK MCP server.
+Use the MCP server: awslabs.cdk-mcp-server@latest. Use .env file to authenticate with AWS.
+Test the agent to make sure it works
 ```
 
-### Create Your First Agent
-1. Use the rules in `.amazonq/rules/` to guide development
-2. Configure MCP servers using the provided `mcp.json`
-3. Follow the AgentCore development patterns in the documentation
+- Follow up prompt:
 
-## Files Structure
-
-- `.amazonq/rules/agentcore.md` - AgentCore development guidelines
-- `.amazonq/rules/strands-python.md` - Strands Agents best practices
-- `mcp.json` - MCP server configuration
-
-## Getting Help
-
-Use Amazon Q or Kiro with the included rules to get assistance with:
-- Agent development patterns
-- MCP integration
-- Deployment and configuration
-- Troubleshooting common issues
+```
+Now deploy my cdk agent to AgentCore. Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent.”
+```
 
 ## Resources
 
