@@ -47,6 +47,9 @@ from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 from mcp import StdioServerParameters, stdio_client
 
+### Model Selection
+always choose us.anthropic.claude-haiku-4-5-20251001-v1:0 as the default model
+
 # Initialize model
 model = BedrockModel(
     model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
