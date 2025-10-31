@@ -29,7 +29,7 @@ Test the agent to make sure it works
 - Follow up prompt:
 
 ```
-Now deploy my cdk agent to AgentCore. Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent.”
+Now deploy my cdk agent to AgentCore. Use credential from .env file to authenticate. Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent.”
 ```
 
 ## Resources
