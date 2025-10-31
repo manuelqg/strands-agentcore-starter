@@ -8,7 +8,7 @@ A starter repository with rules and configuration files to help you create your 
 - **MCP Configuration**: Optimal MCP server setup for Strands and AgentCore development
 
 ## Prerequirements
-
+- Python 3.10+ installed.
 - AWS Credentials with permissions of Amazon Bedrock and Amazon AgentCore
 - Kiro or Amazon Q CLI installed
 
