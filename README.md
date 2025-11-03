@@ -10,8 +10,9 @@ A starter repository with rules and configuration files to help you create your 
 ## Prerequirements
 - Python 3.10+ installed.
 - AWS Credentials with permissions of Amazon Bedrock and Amazon AgentCore
+- UV installed. Follow instruction [here](https://docs.astral.sh/uv/getting-started/installation/) to install UV in your machine
 - Kiro or Amazon Q CLI installed
-
+  
 ## Quick Start
 
 - Clone this repository `git clone https://github.com/manuelqg/strands-agentcore-starter`
