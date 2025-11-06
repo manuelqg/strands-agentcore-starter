@@ -44,6 +44,42 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install "bedrock-agentcore-starter-toolkit>=0.1.21" strands-agents boto3
 ```
 
+## Model Selection
+
+### Always use Claude Haiku for AgentCore agents
+
+Always choose `us.anthropic.claude-haiku-4-5-20251001-v1:0` as the default model for AgentCore agents:
+
+```python
+from strands.models import BedrockModel
+
+# ✅ CORRECT - Use Claude Haiku
+bedrock_model = BedrockModel(
+    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    temperature=0.7,
+)
+```
+
+**Why Claude Haiku?**
+- **Cost-effective**: Lowest cost per token among Claude models
+- **Fast inference**: Quick response times for agent operations
+- **Sufficient capability**: Handles complex reasoning and tool use
+- **Optimized for AgentCore**: Designed for production agent workloads
+- **Reliable**: Proven performance in production environments
+
+**Model Comparison:**
+
+| Model | Cost | Speed | Reasoning | Best For |
+|-------|------|-------|-----------|----------|
+| Claude Haiku | ✅ Lowest | ✅ Fastest | Good | AgentCore agents, real-time responses |
+| Claude Sonnet | Medium | Medium | Excellent | Complex analysis, research |
+| Claude Opus | Highest | Slowest | Best | Complex reasoning, edge cases |
+
+**When to use other models:**
+- Use **Sonnet** only if Haiku cannot handle your specific use case
+- Use **Opus** only for complex multi-step reasoning that Sonnet cannot handle
+- Always start with Haiku and upgrade only if needed
+
 ## Agent Development Patterns
 
 ### Basic Agent Structure
@@ -132,29 +168,35 @@ agent = Agent(
 
 ### MCP Integration with AgentCore
 
-When integrating MCP (Model Context Protocol) servers with AgentCore:
+When integrating MCP (Model Context Protocol) servers with AgentCore, you can connect to multiple MCP servers and aggregate their tools:
 
 ```python
-import os
-from mcp import stdio_client, StdioServerParameters
+import json
+import logging
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from mcp import StdioServerParameters, stdio_client
 from strands import Agent
 from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
-# Bypass tool consent for automated execution
-os.environ["BYPASS_TOOL_CONSENT"] = "true"
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Initialize the AgentCore App
 app = BedrockAgentCoreApp()
 
-# Initialize Bedrock model
-model = BedrockModel(
-    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    temperature=0.7,
+# Initialize multiple MCP clients at module level
+aws_docs_client = MCPClient(
+    lambda: stdio_client(
+        StdioServerParameters(
+            command="uvx",
+            args=["awslabs.aws-documentation-mcp-server@latest"]
+        )
+    )
 )
 
-# Create MCP client (e.g., for AWS CDK MCP server)
-mcp_client = MCPClient(
+aws_cdk_client = MCPClient(
     lambda: stdio_client(
         StdioServerParameters(
             command="uvx",
@@ -163,46 +205,132 @@ mcp_client = MCPClient(
     )
 )
 
-SYSTEM_PROMPT = """You are an expert assistant with access to specialized tools.
-Use the available tools to provide accurate, up-to-date information."""
+aws_pricing_client = MCPClient(
+    lambda: stdio_client(
+        StdioServerParameters(
+            command="uvx",
+            args=["awslabs.aws-pricing-mcp-server@latest"]
+        )
+    )
+)
+
+# Initialize Bedrock model
+# ✅ Always use Claude Haiku for AgentCore agents
+bedrock_model = BedrockModel(
+    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    temperature=0.7,
+)
+
+SYSTEM_PROMPT = """You are an expert AWS Solutions Architect with access to:
+1. AWS Documentation tools
+2. AWS CDK tools
+3. AWS Pricing tools
+
+Provide accurate, comprehensive answers using all available tools."""
+
+def _extract_response_text(response) -> str:
+    """Extract text from agent response, handling different response types."""
+    if isinstance(response, str):
+        return response
+    
+    if hasattr(response, 'message') and isinstance(response.message, dict):
+        content = response.message.get("content", [])
+        if isinstance(content, list) and len(content) > 0:
+            if isinstance(content[0], dict) and "text" in content[0]:
+                return content[0]["text"]
+            elif isinstance(content[0], str):
+                return content[0]
+    
+    if hasattr(response, 'text'):
+        return response.text
+    
+    return str(response)
 
 @app.entrypoint
 def agent_invocation(payload, context):
-    """Handler for agent invocation with MCP tools"""
-    user_message = payload.get(
-        "prompt", 
-        "No prompt found in input. Please provide a JSON payload with a 'prompt' key."
-    )
-    
-    # Use context manager for proper MCP connection handling
-    with mcp_client:
-        # Get tools from the MCP server
-        tools = mcp_client.list_tools_sync()
+    """Handler for agent invocation with multiple MCP servers"""
+    try:
+        if isinstance(payload, str):
+            payload = json.loads(payload)
         
-        # Create agent with MCP tools
+        user_message = payload.get("prompt")
+        if not user_message:
+            return {"error": "No prompt provided"}
+        
+        logger.info(f"Processing: {user_message}")
+        logger.info(f"Session ID: {context.session_id}")
+        
+        # Collect tools from all MCP servers
+        all_tools = []
+        
+        # Load AWS Documentation tools
+        try:
+            with aws_docs_client:
+                docs_tools = aws_docs_client.list_tools_sync()
+                all_tools.extend(docs_tools)
+                logger.info(f"Loaded {len(docs_tools)} documentation tools")
+        except Exception as e:
+            logger.warning(f"Failed to load docs tools: {e}")
+        
+        # Load AWS CDK tools
+        try:
+            with aws_cdk_client:
+                cdk_tools = aws_cdk_client.list_tools_sync()
+                all_tools.extend(cdk_tools)
+                logger.info(f"Loaded {len(cdk_tools)} CDK tools")
+        except Exception as e:
+            logger.warning(f"Failed to load CDK tools: {e}")
+        
+        # Load AWS Pricing tools
+        try:
+            with aws_pricing_client:
+                pricing_tools = aws_pricing_client.list_tools_sync()
+                all_tools.extend(pricing_tools)
+                logger.info(f"Loaded {len(pricing_tools)} pricing tools")
+        except Exception as e:
+            logger.warning(f"Failed to load pricing tools: {e}")
+        
+        logger.info(f"Total tools available: {len(all_tools)}")
+        
+        # Create agent with all tools
         agent = Agent(
-            tools=tools,
-            model=model,
+            tools=all_tools,
+            model=bedrock_model,
             system_prompt=SYSTEM_PROMPT
         )
         
-        # Get agent response
-        result = agent(user_message)
+        # Get response from agent
+        logger.info("Invoking agent...")
+        response = agent(user_message)
         
-        # Log context (only session_id is available)
-        print(f"Session ID: {context.session_id}")
-        print(f"Result: {result}")
+        # Extract and return response
+        response_text = _extract_response_text(response)
+        logger.info(f"Response: {len(response_text)} characters")
         
-        return {"result": result.message}
+        return {"response": response_text}
+        
+    except Exception as e:
+        logger.error(f"Error: {e}", exc_info=True)
+        return {"error": str(e)}
 
 app.run()
 ```
 
-**Key Points for MCP Integration:**
-- Always use context manager (`with mcp_client:`) for MCP connections
-- MCP tools are discovered dynamically via `list_tools_sync()`
+**Key Points for Multi-MCP Integration:**
+- Initialize MCP clients at module level for reuse across invocations
+- Use context managers (`with mcp_client:`) for proper connection handling
+- Aggregate tools from multiple MCP servers into a single list
+- Handle exceptions gracefully when MCP servers are unavailable
+- Use logging to track tool loading and agent invocation
+- Extract response text properly from different response types
 - Set `BYPASS_TOOL_CONSENT=true` for automated tool execution
 - MCP servers run via `uvx` command (requires `uv` package manager)
+
+**Available AWS MCP Servers:**
+- `awslabs.aws-documentation-mcp-server@latest` - AWS documentation search and retrieval
+- `awslabs.cdk-mcp-server@latest` - AWS CDK guidance and best practices
+- `awslabs.aws-pricing-mcp-server@latest` - AWS pricing information
+- `awslabs.aws-cdk-nag-mcp-server@latest` - CDK Nag security checks
 
 ### Code Interpreter Integration
 ```python
