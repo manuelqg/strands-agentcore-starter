@@ -44,6 +44,89 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install "bedrock-agentcore-starter-toolkit>=0.1.21" strands-agents boto3
 ```
 
+## Requirements.txt - Critical for Deployment
+
+### ⚠️ CRITICAL: All Runtime Dependencies Must Be in requirements.txt
+
+When deploying to AgentCore, **ALL packages your agent imports must be listed in requirements.txt**. The deployment process builds a fresh environment based solely on this file.
+
+**Common mistake**: Installing packages locally but forgetting to add them to requirements.txt causes `ModuleNotFoundError` at runtime.
+
+### Minimum Required Packages
+
+For a basic AgentCore agent with Strands, your `requirements.txt` MUST include:
+
+```txt
+strands-agents>=1.15.0
+bedrock-agentcore-starter-toolkit>=0.1.21
+boto3>=1.40.0
+```
+
+### Additional Packages Based on Features
+
+Add these based on what your agent uses:
+
+```txt
+# If using MCP servers
+mcp>=1.20.0
+
+# If loading environment variables
+python-dotenv>=1.2.0
+
+# If making HTTP requests
+requests>=2.31.0
+
+# If using async features
+aiohttp>=3.9.0
+
+# If parsing JSON/YAML
+pyyaml>=6.0
+```
+
+### Example Complete requirements.txt
+
+```txt
+# Core AgentCore dependencies (REQUIRED)
+strands-agents>=1.15.0
+bedrock-agentcore-starter-toolkit>=0.1.21
+boto3>=1.40.0
+
+# Optional: MCP support
+mcp>=1.20.0
+
+# Optional: Environment variables
+python-dotenv>=1.2.0
+
+# Optional: HTTP requests
+requests>=2.31.0
+```
+
+### Deployment Checklist
+
+Before running `agentcore launch`:
+
+1. ✅ Check all `import` statements in your agent code
+2. ✅ Verify each imported package is in requirements.txt
+3. ✅ Include `bedrock-agentcore-starter-toolkit>=0.1.21` (often forgotten!)
+4. ✅ Test locally first: `pip install -r requirements.txt` in a fresh venv
+5. ✅ If deployment fails with ModuleNotFoundError, add the missing package and redeploy
+
+### Troubleshooting ModuleNotFoundError
+
+If you see `ModuleNotFoundError: No module named 'package_name'` in logs:
+
+```bash
+# 1. Add the missing package to requirements.txt
+echo "package_name>=version" >> requirements.txt
+
+# 2. Redeploy with auto-update
+agentcore launch --auto-update-on-conflict
+
+# 3. Check logs to verify fix
+aws logs tail /aws/bedrock-agentcore/runtimes/AGENT_ID-DEFAULT \
+  --log-stream-name-prefix "YYYY/MM/DD/[runtime-logs" --since 5m
+```
+
 ## Model Selection
 
 ### Always use Claude Haiku for AgentCore agents
@@ -81,6 +164,161 @@ bedrock_model = BedrockModel(
 - Always start with Haiku and upgrade only if needed
 
 ## Agent Development Patterns
+
+### Simple Agent with Custom Tools
+
+Here's a complete example of a simple weather agent:
+
+```python
+"""
+Simple Weather Agent for Amazon Bedrock AgentCore
+"""
+import os
+import json
+import logging
+from strands import Agent, tool
+from strands.models import BedrockModel
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Bypass tool consent for automated execution
+os.environ["BYPASS_TOOL_CONSENT"] = "true"
+
+# Initialize the AgentCore App
+app = BedrockAgentCoreApp()
+
+# Model configuration - Always use Claude Haiku for AgentCore
+MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+# System prompt for the agent
+SYSTEM_PROMPT = """You are a helpful weather assistant. You can provide weather information 
+for cities around the world. Use the get_weather tool to fetch current weather data."""
+
+
+@tool
+def get_weather(city: str, units: str = "celsius") -> str:
+    """Get current weather information for a city.
+    
+    Args:
+        city: The name of the city to get weather for
+        units: Temperature units - 'celsius' or 'fahrenheit' (default: celsius)
+    
+    Returns:
+        Weather information as a formatted string
+    """
+    # Simulated weather data (in production, call a real weather API)
+    weather_data = {
+        "new york": {"temp": 22, "condition": "Partly cloudy", "humidity": 65, "wind": 15},
+        "london": {"temp": 18, "condition": "Rainy", "humidity": 80, "wind": 20},
+        "tokyo": {"temp": 25, "condition": "Sunny", "humidity": 55, "wind": 10},
+    }
+    
+    city_lower = city.lower()
+    
+    if city_lower not in weather_data:
+        return f"Sorry, weather data for {city} is not available."
+    
+    data = weather_data[city_lower]
+    temp = data["temp"]
+    
+    # Convert to Fahrenheit if requested
+    if units.lower() == "fahrenheit":
+        temp = (temp * 9/5) + 32
+        temp_unit = "°F"
+    else:
+        temp_unit = "°C"
+    
+    return f"""Weather in {city.title()}:
+🌡️ Temperature: {temp:.1f}{temp_unit}
+☁️ Condition: {data['condition']}
+💧 Humidity: {data['humidity']}%
+💨 Wind Speed: {data['wind']} km/h"""
+
+
+@app.entrypoint
+def agent_invocation(payload, context):
+    """Handler for agent invocation
+    
+    Args:
+        payload: Input payload containing the user prompt
+        context: AgentCore context with session information
+        
+    Returns:
+        Dictionary with the agent's response
+    """
+    try:
+        # Parse payload if it's a string
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        
+        # Extract user message from payload
+        user_message = payload.get(
+            "prompt", 
+            "No prompt found in input. Please provide a JSON payload with a 'prompt' key."
+        )
+        
+        logger.info(f"Processing request: {user_message}")
+        logger.info(f"Session ID: {context.session_id}")
+        
+        # Initialize Bedrock model
+        bedrock_model = BedrockModel(
+            model_id=MODEL_ID,
+            temperature=0.7,
+        )
+        
+        # Create agent with weather tool
+        agent = Agent(
+            tools=[get_weather],
+            model=bedrock_model,
+            system_prompt=SYSTEM_PROMPT
+        )
+        
+        # Get agent response
+        result = agent(user_message)
+        
+        # Extract response text
+        response_text = result.message if hasattr(result, 'message') else str(result)
+        
+        logger.info(f"Response generated: {len(str(response_text))} characters")
+        
+        # Return response
+        return {"result": response_text}
+        
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
+if __name__ == "__main__":
+    app.run()
+```
+
+**Required requirements.txt for this agent:**
+```txt
+strands-agents>=1.15.0
+bedrock-agentcore-starter-toolkit>=0.1.21
+boto3>=1.40.0
+```
+
+**Deployment steps:**
+```bash
+# 1. Configure the agent
+agentcore configure --entrypoint weather_agent.py \
+  --name weather_agent \
+  --requirements-file requirements.txt \
+  --disable-memory \
+  --non-interactive \
+  --region us-east-1
+
+# 2. Deploy to AgentCore
+agentcore launch
+
+# 3. Test the agent
+agentcore invoke '{"prompt": "What is the weather in Tokyo?"}'
+```
 
 ### Basic Agent Structure
 ```python
@@ -536,6 +774,28 @@ agentcore destroy --agent agent_name --delete-ecr-repo
 - Use `--since 1h` flag for recent logs
 
 ## Common Errors and Solutions
+
+### ModuleNotFoundError During Runtime
+
+**Error**: `ModuleNotFoundError: No module named 'bedrock_agentcore'` (or any other package)
+
+**Cause**: The package is installed locally but missing from requirements.txt. AgentCore builds a fresh environment using only packages listed in requirements.txt.
+
+**Solution**:
+```bash
+# 1. Add the missing package to requirements.txt
+# For bedrock_agentcore, add:
+echo "bedrock-agentcore-starter-toolkit>=0.1.21" >> requirements.txt
+
+# 2. Redeploy the agent
+agentcore launch --auto-update-on-conflict
+
+# 3. Verify the fix by checking logs
+aws logs tail /aws/bedrock-agentcore/runtimes/AGENT_ID-DEFAULT \
+  --log-stream-name-prefix "YYYY/MM/DD/[runtime-logs" --since 5m
+```
+
+**Prevention**: Always check that every `import` statement in your code has a corresponding entry in requirements.txt before deploying.
 
 ### RequestContext AttributeError
 **Error**: `AttributeError: 'RequestContext' object has no attribute 'request_id'`
