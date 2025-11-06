@@ -30,9 +30,9 @@ Test the agent to make sure it works. Use steering files for guidance
 - Follow up prompt:
 
 ```
-Now deploy my cdk agent to AgentCore. Use credential from .env file to authenticate. 
-Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent. 
-Deploy to us-east-1. Use steering files for guidance
+Deploy a a simple weather agent to AgentCore using strands framework. Use credential from .env file to authenticate. 
+Name the file agentcore_weather_agent. Test the agent. 
+Deploy to us-east-1. Use agentcore and strands mcp for guidance
 ”
 ```
 
