@@ -31,7 +31,7 @@ Test the agent to make sure it works. Use steering files for guidance
 
 ```
 Deploy a a simple weather agent to AgentCore using strands framework. Use credential from .env file to authenticate. 
-Name the file agentcore_weather_agent. Test the agent. 
+Name the file agentcore_weather_agent. Call the agent agentcore_weather_agent Test the agent. 
 Deploy to us-east-1. Use agentcore and strands mcp for guidance
 ”
 ```
