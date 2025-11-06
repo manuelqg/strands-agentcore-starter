@@ -24,13 +24,16 @@ A starter repository with rules and configuration files to help you create your 
 ```
 Create a Strands Agent in cdk_agent.py that connects to the AWS CDK MCP server.
 Use the MCP server: awslabs.cdk-mcp-server@latest. Use .env file to authenticate with AWS.
-Test the agent to make sure it works
+Test the agent to make sure it works. Use steering files for guidance
 ```
 
 - Follow up prompt:
 
 ```
-Now deploy my cdk agent to AgentCore. Use credential from .env file to authenticate. Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent.”
+Now deploy my cdk agent to AgentCore. Use credential from .env file to authenticate. 
+Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent. 
+Deplot to us-east-1
+”
 ```
 
 ## Resources
