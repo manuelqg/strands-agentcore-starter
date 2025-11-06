@@ -32,7 +32,7 @@ Test the agent to make sure it works. Use steering files for guidance
 ```
 Now deploy my cdk agent to AgentCore. Use credential from .env file to authenticate. 
 Name the file agentcore_cdk_agent and name my agent cdk_agent. Test the agent. 
-Deplot to us-east-1
+Deploy to us-east-1. Use steering files for guidance
 ”
 ```
 
